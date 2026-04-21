@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Edubricz Sales Tracking</string>
+    <string name="title_activity_main">Edubricz Sales Tracking</string>
+    <string name="package_name">com.edubricz.salestracking</string>
+    <string name="custom_url_scheme">com.edubricz.salestracking</string>
+</resources>

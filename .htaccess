@@ -1,0 +1,21 @@
+# Enable Rewrite Engine
+RewriteEngine On
+
+# Handle API requests
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ backend/api/index.php [QSA,L]
+
+# Serve uploaded files
+RewriteRule ^uploads/(.*)$ uploads/$1 [L]
+
+# For React Router (Admin)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^admin/(.*)$ admin/index.html [L]
+
+# For React Router (Mobile)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^mobile/(.*)$ mobile/index.html [L]
+

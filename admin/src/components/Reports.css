@@ -1,0 +1,196 @@
+.reports h1 {
+  margin-bottom: 30px;
+  color: #2c3e50;
+}
+
+.report-filters {
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.date-range input {
+  flex: 1;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+  height: fit-content;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.btn-primary:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.report-results {
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.summary-card {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.summary-card h3 {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.summary-card p {
+  font-size: 32px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.summary-card p.visited {
+  color: #27ae60;
+}
+
+.summary-card p.not-visited {
+  color: #e74c3c;
+}
+
+.summary-card p.follow-up {
+  color: #f39c12;
+}
+
+.visits-table-container,
+.performance-table-container {
+  margin-top: 30px;
+}
+
+.visits-table-container h2,
+.performance-table-container h2 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.visits-table,
+.performance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.visits-table th,
+.performance-table th {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 2px solid #ecf0f1;
+  color: #7f8c8d;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.visits-table td,
+.performance-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.visits-table tr:hover,
+.performance-table tr:hover {
+  background: #f8f9fa;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-visited {
+  background: #27ae60;
+  color: white;
+}
+
+.status-not_visited {
+  background: #e74c3c;
+  color: white;
+}
+
+.status-follow_up {
+  background: #f39c12;
+  color: white;
+}
+
+.status-meeting_scheduled {
+  background: #3498db;
+  color: white;
+}
+
+.status-invalid_location {
+  background: #95a5a6;
+  color: white;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+  font-size: 18px;
+}
+
