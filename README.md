@@ -63,6 +63,10 @@ composer install
 # DB_NAME=sales_tracking
 # DB_USER=root
 # DB_PASS=your_password
+
+# Configure Google Places API key (required for places search)
+# Create backend/.env (see backend/.env.example) and set:
+# GOOGLE_PLACES_API_KEY=...
 ```
 
 ### 3. Start PHP Server
@@ -82,6 +86,11 @@ php -S localhost:8000 -t api
 ```bash
 # Navigate to admin directory
 cd admin
+
+# Configure environment variables
+# Create admin/.env (see admin/.env.example) and set:
+# VITE_API_URL=http://localhost:8000
+# VITE_GOOGLE_MAPS_API_KEY=...
 
 # Install dependencies
 npm install

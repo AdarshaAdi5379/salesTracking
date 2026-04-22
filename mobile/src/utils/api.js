@@ -1,7 +1,8 @@
 import axios from 'axios'
 
-// Use environment variable for API URL, default to staging server
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://pooja.edubricz.space/salesapi/api'
+// Use environment variable for API URL, default to local PHP dev server
+// Local backend (from this repo): `cd backend && php -S localhost:8000 -t api`
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -33,4 +34,3 @@ api.interceptors.response.use(
 )
 
 export default api
-

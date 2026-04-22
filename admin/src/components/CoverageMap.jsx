@@ -3,7 +3,8 @@ import Layout from './Layout'
 import api from '../utils/api'
 import './CoverageMap.css'
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyByMpZcBmce4H-U0gq0y6Wk_gWJ9r-_1ig'
+
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
 const mapContainerStyle = {
   width: '100%',
@@ -34,6 +35,16 @@ function CoverageMap({ user, onLogout }) {
   const markersRef = useRef([])
 
   useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      console.error('Missing VITE_GOOGLE_MAPS_API_KEY; Google Maps will not load.')
+      if (user.role === 'admin') {
+        fetchSalespersons()
+      }
+      fetchAreas()
+      fetchCoverageData()
+      return
+    }
+
     // Load Google Maps script
     if (!window.google || !window.google.maps) {
       const script = document.createElement('script')
@@ -285,6 +296,21 @@ function CoverageMap({ user, onLogout }) {
           </button>
         </div>
 
+        {!GOOGLE_MAPS_API_KEY && (
+          <div
+            style={{
+              margin: '12px 0',
+              padding: '12px 14px',
+              border: '1px solid #f1c40f',
+              background: '#fff9db',
+              borderRadius: 8,
+              color: '#7a5d00'
+            }}
+          >
+            Google Maps is not configured. Set <code>VITE_GOOGLE_MAPS_API_KEY</code> in <code>admin/.env</code>.
+          </div>
+        )}
+
         <div className="map-wrapper">
           <div ref={mapRef} style={mapContainerStyle}></div>
         </div>
@@ -308,4 +334,3 @@ function CoverageMap({ user, onLogout }) {
 }
 
 export default CoverageMap
-
