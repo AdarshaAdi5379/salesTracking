@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Layout from './Layout'
 import api from '../utils/api'
+import loadGoogleMaps from '../utils/googleMapsLoader'
 import './CoverageMap.css'
 
 
@@ -45,29 +46,23 @@ function CoverageMap({ user, onLogout }) {
       return
     }
 
-    // Load Google Maps script
-    if (!window.google || !window.google.maps) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
+    loadGoogleMaps(GOOGLE_MAPS_API_KEY)
+      .then(() => {
         initializeMap()
         if (user.role === 'admin') {
           fetchSalespersons()
         }
         fetchAreas()
         fetchCoverageData()
-      }
-      document.head.appendChild(script)
-    } else {
-      initializeMap()
-      if (user.role === 'admin') {
-        fetchSalespersons()
-      }
-      fetchAreas()
-      fetchCoverageData()
-    }
+      })
+      .catch((err) => {
+        console.error('Failed to load Google Maps:', err)
+        if (user.role === 'admin') {
+          fetchSalespersons()
+        }
+        fetchAreas()
+        fetchCoverageData()
+      })
 
     return () => {
       // Cleanup markers
