@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import './VisitDetails.css'
@@ -9,6 +9,14 @@ function VisitDetails({ user, onLogout }) {
   const [routeItem, setRouteItem] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const streamRef = useRef(null)
+  const previousPreviewUrlRef = useRef(null)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState(null)
+  const [cameraStream, setCameraStream] = useState(null)
   const [formData, setFormData] = useState({
     status: 'visited',
     notes: '',
@@ -27,6 +35,16 @@ function VisitDetails({ user, onLogout }) {
     fetchRouteItem()
     getCurrentLocation()
   }, [routeItemId])
+
+  useEffect(() => {
+    return () => {
+      stopCamera()
+      if (previousPreviewUrlRef.current) {
+        URL.revokeObjectURL(previousPreviewUrlRef.current)
+        previousPreviewUrlRef.current = null
+      }
+    }
+  }, [])
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -78,19 +96,174 @@ function VisitDetails({ user, onLogout }) {
     }
   }
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Photo size must be less than 5MB')
+  const stopCamera = () => {
+    try {
+      if (streamRef.current) {
+        for (const track of streamRef.current.getTracks()) {
+          track.stop()
+        }
+      }
+    } finally {
+      streamRef.current = null
+      setCameraStream(null)
+      setCameraActive(false)
+      setCameraReady(false)
+    }
+  }
+
+  useEffect(() => {
+    const video = videoRef.current
+    const stream = cameraStream
+    if (!cameraActive || !video || !stream) return
+    if (video.srcObject !== stream) video.srcObject = stream
+
+    const onLoaded = () => {
+      if (video.videoWidth && video.videoHeight) setCameraReady(true)
+    }
+    video.addEventListener('loadedmetadata', onLoaded)
+
+    const startedAt = Date.now()
+    const poll = window.setInterval(() => {
+      if (video.videoWidth && video.videoHeight) {
+        setCameraReady(true)
+        window.clearInterval(poll)
         return
       }
-      setFormData({
-        ...formData,
-        photo: file,
-        photoPreview: URL.createObjectURL(file)
-      })
+      // Some browsers can show a stream while reporting 0x0 for a bit; unblock after a short grace period.
+      if (Date.now() - startedAt > 5000) {
+        setCameraReady(true)
+        window.clearInterval(poll)
+      }
+    }, 200)
+    ;(async () => {
+      try {
+        await video.play()
+        onLoaded()
+      } catch (err) {
+        console.error('Video play failed:', err)
+      }
+    })()
+
+    return () => {
+      video.removeEventListener('loadedmetadata', onLoaded)
+      window.clearInterval(poll)
     }
+  }, [cameraActive, cameraStream])
+
+  const startCamera = async () => {
+    setCameraError(null)
+    setCameraReady(false)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera not supported in this browser.')
+      return
+    }
+
+    try {
+      setCameraActive(true)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' }
+        },
+        audio: false
+      })
+      streamRef.current = stream
+      setCameraStream(stream)
+    } catch (err) {
+      console.error('Camera error:', err)
+      setCameraError('Camera permission denied or camera unavailable.')
+      stopCamera()
+    }
+  }
+
+  const setPhotoFromBlob = (blob) => {
+    if (blob.size > 5 * 1024 * 1024) {
+      alert('Photo size must be less than 5MB')
+      return
+    }
+
+    const fileType = blob.type || 'image/jpeg'
+    const file = new File([blob], `visit_${Date.now()}.jpg`, { type: fileType })
+    const previewUrl = URL.createObjectURL(blob)
+
+    if (previousPreviewUrlRef.current) {
+      URL.revokeObjectURL(previousPreviewUrlRef.current)
+    }
+    previousPreviewUrlRef.current = previewUrl
+
+    setFormData((prev) => ({
+      ...prev,
+      photo: file,
+      photoPreview: previewUrl
+    }))
+  }
+
+  const capturePhoto = async () => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+
+    const stream = cameraStream || streamRef.current
+    const track = stream?.getVideoTracks?.()?.[0]
+    const settings = track?.getSettings?.() || {}
+
+    const width = video.videoWidth || settings.width || 1280
+    const height = video.videoHeight || settings.height || 720
+    if (!width || !height) {
+      setCameraError('Camera not ready yet. Try again.')
+      return
+    }
+
+    let blob = null
+    try {
+      // Prefer ImageCapture when available; avoids relying on video element metadata.
+      if (track && typeof window !== 'undefined' && 'ImageCapture' in window) {
+        const imageCapture = new window.ImageCapture(track)
+        if (typeof imageCapture.takePhoto === 'function') {
+          blob = await imageCapture.takePhoto()
+        } else if (typeof imageCapture.grabFrame === 'function') {
+          const bitmap = await imageCapture.grabFrame()
+          canvas.width = bitmap.width
+          canvas.height = bitmap.height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(bitmap, 0, 0)
+          blob = await new Promise((resolve) =>
+            canvas.toBlob(resolve, 'image/jpeg', 0.85)
+          )
+        }
+      }
+    } catch (err) {
+      console.error('ImageCapture failed, falling back to canvas:', err)
+    }
+
+    if (!blob) {
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, width, height)
+      blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.85)
+      )
+    }
+
+    if (!blob) {
+      setCameraError('Failed to capture photo.')
+      return
+    }
+
+    setPhotoFromBlob(blob)
+    stopCamera()
+  }
+
+  const removePhoto = () => {
+    if (previousPreviewUrlRef.current) {
+      URL.revokeObjectURL(previousPreviewUrlRef.current)
+      previousPreviewUrlRef.current = null
+    }
+    setFormData((prev) => ({
+      ...prev,
+      photo: null,
+      photoPreview: null
+    }))
   }
 
   const handleSubmit = async (e) => {
@@ -286,13 +459,37 @@ function VisitDetails({ user, onLogout }) {
                 <img src={formData.photoPreview} alt="Preview" />
               </div>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="file-input"
-            />
-            <small>Max size: 5MB (JPEG, PNG, GIF, WebP)</small>
+            {cameraError && <div className="camera-error">{cameraError}</div>}
+
+            {cameraActive && (
+              <div className="camera-box">
+                <video ref={videoRef} className="camera-video" playsInline muted autoPlay />
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
+                <div className="camera-actions">
+                  <button type="button" className="btn-camera" onClick={capturePhoto}>
+                    Capture
+                  </button>
+                  <button type="button" className="btn-camera-secondary" onClick={stopCamera}>
+                    Cancel
+                  </button>
+                </div>
+                {!cameraReady && <div className="camera-hint">Starting camera…</div>}
+              </div>
+            )}
+
+            {!cameraActive && (
+              <div className="camera-actions">
+                <button type="button" className="btn-camera" onClick={startCamera}>
+                  {formData.photoPreview ? 'Retake Photo' : 'Open Camera'}
+                </button>
+                {formData.photoPreview && (
+                  <button type="button" className="btn-camera-secondary" onClick={removePhoto}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+            <small>Max size: 5MB (captured as JPEG)</small>
           </div>
 
           {currentLocation && (
@@ -317,4 +514,3 @@ function VisitDetails({ user, onLogout }) {
 }
 
 export default VisitDetails
-

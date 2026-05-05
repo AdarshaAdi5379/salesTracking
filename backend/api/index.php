@@ -41,6 +41,54 @@ try {
     // error_log("API Resource: " . $resource . " | Path: " . $path . " | Segments: " . json_encode($segments));
 
     switch ($resource) {
+        case 'uploads':
+            // Serve uploaded visit images from /uploads/<filename>.
+            // NOTE: This endpoint is intentionally unauthenticated because <img> tags can't send Authorization headers.
+            // If you need auth-protected images, switch to a signed URL or a token-based query param.
+            $requested = $segments[1] ?? '';
+            if ($requested === '') {
+                http_response_code(404);
+                echo json_encode(['error' => 'File not specified']);
+                exit;
+            }
+
+            // Basic path traversal protection.
+            if (str_contains($requested, '..') || str_contains($requested, '/') || str_contains($requested, '\\')) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid file path']);
+                exit;
+            }
+
+            $uploadsDir = realpath(__DIR__ . '/../../uploads');
+            if ($uploadsDir === false) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Uploads directory not found']);
+                exit;
+            }
+
+            $filePath = $uploadsDir . DIRECTORY_SEPARATOR . $requested;
+            if (!is_file($filePath)) {
+                http_response_code(404);
+                echo json_encode(['error' => 'File not found']);
+                exit;
+            }
+
+            $mime = 'application/octet-stream';
+            if (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                if ($finfo) {
+                    $detected = finfo_file($finfo, $filePath);
+                    if (is_string($detected) && $detected !== '') $mime = $detected;
+                    finfo_close($finfo);
+                }
+            }
+
+            header('Content-Type: ' . $mime);
+            header('Content-Length: ' . filesize($filePath));
+            header('Cache-Control: private, max-age=3600');
+            readfile($filePath);
+            exit;
+
         case 'auth':
             require __DIR__ . '/auth.php';
             break;
@@ -80,7 +128,7 @@ try {
                 'path' => $path,
                 'segments' => $segments,
                 'request_uri' => $request_uri,
-                'available_resources' => ['auth', 'areas', 'schools', 'routes', 'visits', 'reports', 'users', 'upload', 'places', 'coverage']
+                'available_resources' => ['auth', 'areas', 'schools', 'routes', 'visits', 'reports', 'users', 'upload', 'uploads', 'places', 'coverage']
             ]);
             exit;
             break;
@@ -95,4 +143,3 @@ try {
         'trace' => $e->getTraceAsString()
     ]);
 }
-

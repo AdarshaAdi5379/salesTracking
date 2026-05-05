@@ -105,6 +105,74 @@
   border: 1px solid #ddd;
 }
 
+.camera-error {
+  background: #fdecea;
+  color: #b71c1c;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #f5c6cb;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.camera-box {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  margin-bottom: 10px;
+}
+
+.camera-video {
+  width: 100%;
+  display: block;
+  background: #000;
+  max-height: 60vh;
+  object-fit: cover;
+}
+
+.camera-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-camera {
+  flex: 1;
+  padding: 12px;
+  background: #1e88e5;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-camera:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn-camera-secondary {
+  flex: 1;
+  padding: 12px;
+  background: #95a5a6;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.camera-hint {
+  padding: 10px 12px;
+  color: white;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
 .location-info {
   background: #e8f5e9;
   padding: 12px;
@@ -157,4 +225,3 @@
   background: #bdc3c7;
   cursor: not-allowed;
 }
-

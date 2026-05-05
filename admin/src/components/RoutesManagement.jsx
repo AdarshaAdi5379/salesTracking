@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from './Layout'
 import api from '../utils/api'
@@ -14,6 +14,14 @@ function RoutesManagement({ user, onLogout }) {
   const [showMoveDialog, setShowMoveDialog] = useState(null)
   const [nextDate, setNextDate] = useState('')
   const [moving, setMoving] = useState(false)
+  const [routeDetails, setRouteDetails] = useState(null)
+  const [routeDetailsLoading, setRouteDetailsLoading] = useState(false)
+  const [routeDetailsError, setRouteDetailsError] = useState(null)
+
+  const uploadsBaseUrl = useMemo(() => {
+    const base = api.defaults.baseURL || ''
+    return base.replace(/\/api\/?$/, '')
+  }, [])
 
   useEffect(() => {
     fetchRoutes()
@@ -110,6 +118,33 @@ function RoutesManagement({ user, onLogout }) {
     } finally {
       setMoving(false)
     }
+  }
+
+  const openRouteDetails = async (routeId) => {
+    setRouteDetailsError(null)
+    setRouteDetails(null)
+    setRouteDetailsLoading(true)
+    try {
+      const response = await api.get(`/routes/${routeId}`)
+      setRouteDetails(response.data)
+    } catch (err) {
+      console.error('Failed to fetch route details:', err)
+      setRouteDetailsError(err.response?.data?.error || err.message)
+    } finally {
+      setRouteDetailsLoading(false)
+    }
+  }
+
+  const closeRouteDetails = () => {
+    setRouteDetails(null)
+    setRouteDetailsError(null)
+    setRouteDetailsLoading(false)
+  }
+
+  const toPhotoSrc = (photoUrl) => {
+    if (!photoUrl) return null
+    if (/^https?:\/\//i.test(photoUrl)) return photoUrl
+    return `${uploadsBaseUrl}${photoUrl}`
   }
 
   if (loading) {
@@ -249,9 +284,13 @@ function RoutesManagement({ user, onLogout }) {
                     >
                       {expandedRoute === route.id ? 'Hide Details' : 'Show Uncovered'}
                     </button>
-                  <Link to={`/reports?route_id=${route.id}&date=${route.date}`} className="btn-secondary">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => openRouteDetails(route.id)}
+                  >
                     View Details
-                  </Link>
+                  </button>
                   {user.role === 'admin' && (
                     <>
                       <Link to={`/routes/edit/${route.id}`} className="btn-primary" style={{ fontSize: '14px', padding: '8px 16px' }}>
@@ -394,9 +433,84 @@ function RoutesManagement({ user, onLogout }) {
           </div>
         )}
       </div>
+
+      {(routeDetailsLoading || routeDetails || routeDetailsError) && (
+        <div className="route-details-modal-backdrop" onClick={closeRouteDetails} role="presentation">
+          <div className="route-details-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="route-details-modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>Route Details</h3>
+                {routeDetails?.id && (
+                  <div className="route-details-modal-subtitle">
+                    #{routeDetails.id} • {routeDetails.salesperson_name || 'N/A'} • {routeDetails.area_name || 'N/A'}
+                  </div>
+                )}
+              </div>
+              <button type="button" className="route-details-modal-close" onClick={closeRouteDetails}>
+                ✕
+              </button>
+            </div>
+
+            {routeDetailsLoading && <div style={{ padding: '14px' }}>Loading…</div>}
+            {routeDetailsError && (
+              <div className="route-details-modal-error">
+                Failed to load route details: {routeDetailsError}
+              </div>
+            )}
+
+            {routeDetails?.items && (
+              <div className="route-details-table-wrap">
+                <table className="route-details-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>School</th>
+                      <th>Status</th>
+                      <th>Notes</th>
+                      <th>Photo</th>
+                      <th>Visited At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routeDetails.items.map((item, idx) => {
+                      const photoSrc = toPhotoSrc(item.photo_url)
+                      return (
+                        <tr key={item.id || idx}>
+                          <td>{item.order_index || idx + 1}</td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{item.school_name || '-'}</div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>{item.type || ''}</div>
+                          </td>
+                          <td>
+                            <span className={`status-pill status-${item.visit_status || 'not_visited'}`}>
+                              {item.visit_status ? item.visit_status.replaceAll('_', ' ') : 'not visited'}
+                            </span>
+                          </td>
+                          <td style={{ maxWidth: 260, whiteSpace: 'pre-wrap' }}>{item.notes || '-'}</td>
+                          <td>
+                            {photoSrc ? (
+                              <a href={photoSrc} target="_blank" rel="noreferrer" title="Open full image">
+                                <img className="route-photo-thumb" src={photoSrc} alt="Visit" loading="lazy" />
+                              </a>
+                            ) : (
+                              <span style={{ color: '#999' }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            {item.visited_at ? new Date(item.visited_at).toLocaleString() : '-'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
 
 export default RoutesManagement
-

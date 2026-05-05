@@ -2,12 +2,41 @@
 
 require_once __DIR__ . '/../utils/auth.php';
 
+function uploadErrorMessage(int $errorCode): string {
+    switch ($errorCode) {
+        case UPLOAD_ERR_INI_SIZE:
+            $uploadMax = ini_get('upload_max_filesize');
+            $postMax = ini_get('post_max_size');
+            return "Uploaded file exceeds server limits (upload_max_filesize={$uploadMax}, post_max_size={$postMax})";
+        case UPLOAD_ERR_FORM_SIZE:
+            return 'Uploaded file exceeds the MAX_FILE_SIZE limit specified by the form';
+        case UPLOAD_ERR_PARTIAL:
+            return 'File was only partially uploaded';
+        case UPLOAD_ERR_NO_FILE:
+            return 'No file was uploaded';
+        case UPLOAD_ERR_NO_TMP_DIR:
+            return 'Missing a temporary folder on the server';
+        case UPLOAD_ERR_CANT_WRITE:
+            return 'Failed to write file to disk';
+        case UPLOAD_ERR_EXTENSION:
+            return 'A PHP extension stopped the file upload';
+        default:
+            return 'Unknown upload error';
+    }
+}
+
 if ($method === 'POST') {
     $user = requireSalesperson();
     
-    if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+    if (!isset($_FILES['photo'])) {
         http_response_code(400);
-        echo json_encode(['error' => 'No file uploaded or upload error']);
+        echo json_encode(['error' => 'No file uploaded (missing "photo" field). Please send multipart/form-data with a "photo" file.']);
+        exit;
+    }
+
+    if ($_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+        http_response_code(400);
+        echo json_encode(['error' => uploadErrorMessage((int)$_FILES['photo']['error'])]);
         exit;
     }
     
@@ -54,4 +83,3 @@ if ($method === 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
 }
-
