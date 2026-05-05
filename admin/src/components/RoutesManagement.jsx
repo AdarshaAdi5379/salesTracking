@@ -8,6 +8,8 @@ function RoutesManagement({ user, onLogout }) {
   const [routes, setRoutes] = useState([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [salespersonId, setSalespersonId] = useState('')
+  const [salespersons, setSalespersons] = useState([])
   const [expandedRoute, setExpandedRoute] = useState(null)
   const [uncoveredSchools, setUncoveredSchools] = useState({})
   const [loadingUncovered, setLoadingUncovered] = useState({})
@@ -24,14 +26,30 @@ function RoutesManagement({ user, onLogout }) {
   }, [])
 
   useEffect(() => {
+    if (user.role === 'admin') {
+      fetchSalespersons()
+    }
     fetchRoutes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date])
+  }, [date, salespersonId])
+
+  const fetchSalespersons = async () => {
+    try {
+      const response = await api.get('/users?role=salesperson')
+      setSalespersons(Array.isArray(response.data) ? response.data : [])
+    } catch (err) {
+      console.error('Failed to fetch salespersons:', err)
+      setSalespersons([])
+    }
+  }
 
   const fetchRoutes = async () => {
     try {
       setLoading(true)
-      const url = date ? `/routes?date=${date}` : '/routes'
+      const params = new URLSearchParams()
+      if (date) params.append('date', date)
+      if (user.role === 'admin' && salespersonId) params.append('salesperson_id', salespersonId)
+      const url = params.toString() ? `/routes?${params}` : '/routes'
       const response = await api.get(url)
       if (Array.isArray(response.data)) {
         setRoutes(response.data)
@@ -174,9 +192,27 @@ function RoutesManagement({ user, onLogout }) {
               onChange={(e) => setDate(e.target.value)}
             />
           </label>
+          {user.role === 'admin' && (
+            <label style={{ marginLeft: '16px' }}>
+              Filter by Salesperson:
+              <select
+                value={salespersonId}
+                onChange={(e) => setSalespersonId(e.target.value)}
+                style={{ marginLeft: '10px', padding: '8px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '14px' }}
+              >
+                <option value="">All Salespersons</option>
+                {salespersons.map((sp) => (
+                  <option key={sp.id} value={sp.id}>
+                    {sp.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             onClick={() => {
               setDate('')
+              setSalespersonId('')
               fetchRoutes()
             }}
             className="btn-secondary"
