@@ -83,6 +83,9 @@ CREATE TABLE IF NOT EXISTS visits (
     notes TEXT,
     using_competitor BOOLEAN DEFAULT FALSE,
     competitor_name VARCHAR(255) NULL,
+    deal_closed BOOLEAN DEFAULT FALSE,
+    deal_value DECIMAL(12, 2) NULL,
+    deal_issues TEXT NULL,
     photo_url VARCHAR(500),
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
@@ -128,8 +131,11 @@ INSERT INTO areas (name, city, state) VALUES
 -- Add competitor fields to visits table (if not exists)
 -- Run: ALTER TABLE visits ADD COLUMN using_competitor BOOLEAN DEFAULT FALSE AFTER notes;
 -- Run: ALTER TABLE visits ADD COLUMN competitor_name VARCHAR(255) NULL AFTER using_competitor;
+-- Add deal closed fields to visits table (if not exists)
+-- Run: ALTER TABLE visits ADD COLUMN deal_closed BOOLEAN DEFAULT FALSE AFTER competitor_name;
+-- Run: ALTER TABLE visits ADD COLUMN deal_value DECIMAL(12, 2) NULL AFTER deal_closed;
+-- Run: ALTER TABLE visits ADD COLUMN deal_issues TEXT NULL AFTER deal_value;
 
 -- Update admin password to admin123 (if needed)
 -- Password hash for 'admin123'
 -- Run: UPDATE users SET password = '$2y$10$i/hk9jlW/7.mtfC/8Uhp0uSecztVgwY2ZPLtG8jhg/ON5XtTXDHhq' WHERE email = 'admin@example.com';
-

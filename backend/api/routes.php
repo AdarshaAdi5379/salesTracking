@@ -66,7 +66,10 @@ if ($method === 'GET') {
         // Get the most recent visit status for each school (across all routes)
         $stmt = $db->prepare("
             SELECT ri.*, s.name as school_name, s.type, s.address, s.latitude, s.longitude, s.phone, s.contact_person,
+                   s.email,
                    v.status as visit_status, v.notes, v.photo_url, v.visited_at, v.latitude as visit_lat, v.longitude as visit_lng,
+                   v.using_competitor, v.competitor_name,
+                   v.deal_closed, v.deal_value, v.deal_issues,
                    (SELECT v2.visited_at FROM visits v2 
                     LEFT JOIN route_items ri2 ON v2.route_item_id = ri2.id 
                     WHERE ri2.school_id = s.id AND v2.status = 'visited' AND v2.visited_at IS NOT NULL 
@@ -513,4 +516,3 @@ if ($method === 'GET') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
 }
-

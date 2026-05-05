@@ -27,7 +27,10 @@ function VisitDetails({ user, onLogout }) {
     email: '',
     contact_person: '',
     using_competitor: false,
-    competitor_name: ''
+    competitor_name: '',
+    deal_closed: false,
+    deal_value: '',
+    deal_issues: ''
   })
   const [currentLocation, setCurrentLocation] = useState(null)
 
@@ -85,7 +88,10 @@ function VisitDetails({ user, onLogout }) {
             email: item.email || '',
             contact_person: item.contact_person || '',
             using_competitor: false,
-            competitor_name: ''
+            competitor_name: '',
+            deal_closed: !!item.deal_closed,
+            deal_value: item.deal_value ?? '',
+            deal_issues: item.deal_issues ?? ''
           })
         }
       }
@@ -295,7 +301,10 @@ function VisitDetails({ user, onLogout }) {
         latitude: currentLocation?.lat || null,
         longitude: currentLocation?.lng || null,
         using_competitor: formData.using_competitor,
-        competitor_name: formData.using_competitor ? formData.competitor_name : null
+        competitor_name: formData.using_competitor ? formData.competitor_name : null,
+        deal_closed: formData.deal_closed,
+        deal_value: formData.deal_closed && formData.deal_value !== '' ? Number(formData.deal_value) : null,
+        deal_issues: formData.deal_closed ? (formData.deal_issues || null) : null
       }
 
       // Include contact updates if updateContact is true
@@ -403,6 +412,44 @@ function VisitDetails({ user, onLogout }) {
                 placeholder="Enter competitor/product name..."
                 style={{ marginTop: '8px', width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
               />
+            )}
+          </div>
+
+          <div className="form-group" style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginTop: '15px' }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={formData.deal_closed}
+                onChange={(e) => setFormData({ ...formData, deal_closed: e.target.checked, deal_value: e.target.checked ? formData.deal_value : '', deal_issues: e.target.checked ? formData.deal_issues : '' })}
+                style={{ marginRight: '8px' }}
+              />
+              Deal Closed
+            </label>
+            {formData.deal_closed && (
+              <div style={{ marginTop: '15px', padding: '15px', background: '#f8f9fa', borderRadius: '5px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: '500' }}>Approximate Deal Value</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    value={formData.deal_value}
+                    onChange={(e) => setFormData({ ...formData, deal_value: e.target.value })}
+                    placeholder="Enter amount (approx)"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: '500' }}>Any Issues</label>
+                  <textarea
+                    value={formData.deal_issues}
+                    onChange={(e) => setFormData({ ...formData, deal_issues: e.target.value })}
+                    rows="3"
+                    placeholder="Describe any issues (optional)..."
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', resize: 'vertical' }}
+                  />
+                </div>
+              </div>
             )}
           </div>
 

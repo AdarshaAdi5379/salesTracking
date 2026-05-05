@@ -75,6 +75,9 @@ if ($method === 'GET') {
     $longitude = $data['longitude'] ?? null;
     $usingCompetitor = isset($data['using_competitor']) ? (bool)$data['using_competitor'] : false;
     $competitorName = $data['competitor_name'] ?? null;
+    $dealClosed = isset($data['deal_closed']) ? (bool)$data['deal_closed'] : false;
+    $dealValue = $data['deal_value'] ?? null;
+    $dealIssues = $data['deal_issues'] ?? null;
     $updateSchoolContact = $data['update_school_contact'] ?? null;
     $schoolId = $data['school_id'] ?? null;
     
@@ -160,18 +163,45 @@ if ($method === 'GET') {
             UPDATE visits 
             SET status = ?, notes = ?, photo_url = ?, latitude = ?, longitude = ?, 
                 using_competitor = ?, competitor_name = ?,
+                deal_closed = ?, deal_value = ?, deal_issues = ?,
                 visited_at = ?, updated_at = NOW()
             WHERE route_item_id = ?
         ");
-        $stmt->execute([$status, $notes, $photoUrl, $latitude, $longitude, $usingCompetitor, $competitorName, $visitedAt, $routeItemId]);
+        $stmt->execute([
+            $status,
+            $notes,
+            $photoUrl,
+            $latitude,
+            $longitude,
+            $usingCompetitor,
+            $competitorName,
+            $dealClosed,
+            $dealClosed ? $dealValue : null,
+            $dealClosed ? $dealIssues : null,
+            $visitedAt,
+            $routeItemId
+        ]);
         $visitId = $existingVisit['id'];
     } else {
         // Create new visit for this route_item
         $stmt = $db->prepare("
-            INSERT INTO visits (route_item_id, status, notes, photo_url, latitude, longitude, using_competitor, competitor_name, visited_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO visits (route_item_id, status, notes, photo_url, latitude, longitude, using_competitor, competitor_name, deal_closed, deal_value, deal_issues, visited_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$routeItemId, $status, $notes, $photoUrl, $latitude, $longitude, $usingCompetitor, $competitorName, $visitedAt]);
+        $stmt->execute([
+            $routeItemId,
+            $status,
+            $notes,
+            $photoUrl,
+            $latitude,
+            $longitude,
+            $usingCompetitor,
+            $competitorName,
+            $dealClosed,
+            $dealClosed ? $dealValue : null,
+            $dealClosed ? $dealIssues : null,
+            $visitedAt
+        ]);
         $visitId = $db->lastInsertId();
     }
     
@@ -199,6 +229,13 @@ if ($method === 'GET') {
     $photoUrl = $data['photo_url'] ?? null;
     $latitude = $data['latitude'] ?? null;
     $longitude = $data['longitude'] ?? null;
+    $usingCompetitor = isset($data['using_competitor']) ? (bool)$data['using_competitor'] : null;
+    $competitorName = $data['competitor_name'] ?? null;
+    $dealClosed = isset($data['deal_closed']) ? (bool)$data['deal_closed'] : null;
+    $dealValue = $data['deal_value'] ?? null;
+    $dealIssues = $data['deal_issues'] ?? null;
+    $updateSchoolContact = $data['update_school_contact'] ?? null;
+    $schoolId = $data['school_id'] ?? null;
     
     // Verify visit belongs to salesperson and get school_id
     $stmt = $db->prepare("
@@ -277,6 +314,22 @@ if ($method === 'GET') {
         $updates[] = "competitor_name = ?";
         $params[] = $competitorName;
     }
+    if ($dealClosed !== null) {
+        $updates[] = "deal_closed = ?";
+        $params[] = $dealClosed;
+        if (!$dealClosed) {
+            $updates[] = "deal_value = NULL";
+            $updates[] = "deal_issues = NULL";
+        }
+    }
+    if ($dealValue !== null) {
+        $updates[] = "deal_value = ?";
+        $params[] = $dealValue;
+    }
+    if ($dealIssues !== null) {
+        $updates[] = "deal_issues = ?";
+        $params[] = $dealIssues;
+    }
     
     if (empty($updates)) {
         http_response_code(400);
@@ -299,4 +352,3 @@ if ($method === 'GET') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
 }
-

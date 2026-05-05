@@ -465,8 +465,11 @@ function RoutesManagement({ user, onLogout }) {
                     <tr>
                       <th>#</th>
                       <th>School</th>
+                      <th>Contact</th>
                       <th>Status</th>
                       <th>Notes</th>
+                      <th>Competitor</th>
+                      <th>Deal Closed</th>
                       <th>Photo</th>
                       <th>Visited At</th>
                     </tr>
@@ -474,6 +477,14 @@ function RoutesManagement({ user, onLogout }) {
                   <tbody>
                     {routeDetails.items.map((item, idx) => {
                       const photoSrc = toPhotoSrc(item.photo_url)
+                      const competitorText =
+                        item.using_competitor
+                          ? (item.competitor_name || 'Yes')
+                          : 'No'
+
+                      const dealText = item.deal_closed
+                        ? `Yes${item.deal_value !== null && item.deal_value !== undefined && item.deal_value !== '' ? ` • ₹${item.deal_value}` : ''}`
+                        : 'No'
                       return (
                         <tr key={item.id || idx}>
                           <td>{item.order_index || idx + 1}</td>
@@ -481,12 +492,24 @@ function RoutesManagement({ user, onLogout }) {
                             <div style={{ fontWeight: 600 }}>{item.school_name || '-'}</div>
                             <div style={{ fontSize: '12px', color: '#666' }}>{item.type || ''}</div>
                           </td>
+                          <td style={{ whiteSpace: 'pre-wrap', color: '#333' }}>
+                            <div>{item.phone ? `📞 ${item.phone}` : '-'}</div>
+                            <div>{item.email ? `✉️ ${item.email}` : '-'}</div>
+                            <div>{item.contact_person ? `👤 ${item.contact_person}` : '-'}</div>
+                          </td>
                           <td>
                             <span className={`status-pill status-${item.visit_status || 'not_visited'}`}>
                               {item.visit_status ? item.visit_status.replaceAll('_', ' ') : 'not visited'}
                             </span>
                           </td>
                           <td style={{ maxWidth: 260, whiteSpace: 'pre-wrap' }}>{item.notes || '-'}</td>
+                          <td style={{ whiteSpace: 'pre-wrap' }}>{competitorText}</td>
+                          <td style={{ whiteSpace: 'pre-wrap' }}>
+                            <div>{dealText}</div>
+                            {item.deal_closed && item.deal_issues && (
+                              <div style={{ marginTop: 6, color: '#666', fontSize: 12 }}>{item.deal_issues}</div>
+                            )}
+                          </td>
                           <td>
                             {photoSrc ? (
                               <a href={photoSrc} target="_blank" rel="noreferrer" title="Open full image">
