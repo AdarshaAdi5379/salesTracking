@@ -34,6 +34,10 @@ function CoverageMap({ user, onLogout }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
+  const [mapCenter, setMapCenter] = useState(defaultCenter)
+  const [mapZoom, setMapZoom] = useState(defaultZoom)
+  const [mapsLoaded, setMapsLoaded] = useState(false)
+  const [mapsError, setMapsError] = useState(null)
 
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
@@ -48,7 +52,8 @@ function CoverageMap({ user, onLogout }) {
 
     loadGoogleMaps(GOOGLE_MAPS_API_KEY)
       .then(() => {
-        initializeMap()
+        setMapsLoaded(true)
+        setMapsError(null)
         if (user.role === 'admin') {
           fetchSalespersons()
         }
@@ -57,6 +62,8 @@ function CoverageMap({ user, onLogout }) {
       })
       .catch((err) => {
         console.error('Failed to load Google Maps:', err)
+        setMapsLoaded(false)
+        setMapsError(err?.message || 'Failed to load Google Maps')
         if (user.role === 'admin') {
           fetchSalespersons()
         }
@@ -70,6 +77,26 @@ function CoverageMap({ user, onLogout }) {
       markersRef.current = []
     }
   }, [])
+
+  useEffect(() => {
+    // Refresh coverage data when filters change
+    fetchCoverageData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.date, filters.salesperson_id, filters.area_id])
+
+  useEffect(() => {
+    // Initialize (or re-initialize) the map once Google Maps is loaded and the container exists.
+    if (!mapsLoaded) return
+    if (!mapRef.current) return
+    if (!window.google?.maps) return
+    if (!mapInstanceRef.current) {
+      initializeMap()
+      return
+    }
+    // Keep map centered even if markers list is empty.
+    mapInstanceRef.current.setCenter(mapCenter)
+    mapInstanceRef.current.setZoom(mapZoom)
+  }, [mapsLoaded, mapCenter, mapZoom])
 
   useEffect(() => {
     if (mapInstanceRef.current && visitedSchools.length > 0) {
@@ -197,9 +224,20 @@ function CoverageMap({ user, onLogout }) {
       
       // Handle both direct response and nested data
       const data = response.data?.data || response.data
-      const schools = data?.visited_schools || data?.visited_schools || []
+      const schools = data?.visited_schools || []
       setVisitedSchools(schools)
-      setSummary(data?.summary || response.data?.summary)
+      setSummary(data?.summary || null)
+
+      if (Array.isArray(schools) && schools.length > 0) {
+        const firstWithCoords = schools.find(s => s.latitude && s.longitude)
+        if (firstWithCoords) {
+          setMapCenter({ lat: parseFloat(firstWithCoords.latitude), lng: parseFloat(firstWithCoords.longitude) })
+          setMapZoom(12)
+        }
+      } else {
+        setMapCenter(defaultCenter)
+        setMapZoom(defaultZoom)
+      }
 
       // Markers will be updated via useEffect when visitedSchools changes
     } catch (err) {
@@ -303,6 +341,21 @@ function CoverageMap({ user, onLogout }) {
             }}
           >
             Google Maps is not configured. Set <code>VITE_GOOGLE_MAPS_API_KEY</code> in <code>admin/.env</code>.
+          </div>
+        )}
+
+        {mapsError && (
+          <div
+            style={{
+              margin: '12px 0',
+              padding: '12px 14px',
+              border: '1px solid #f5c6cb',
+              background: '#fdecea',
+              borderRadius: 8,
+              color: '#b71c1c'
+            }}
+          >
+            Failed to load Google Maps: {mapsError}
           </div>
         )}
 

@@ -12,6 +12,7 @@ function Reports({ user, onLogout }) {
   const [salespersons, setSalespersons] = useState([])
   const [reportData, setReportData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (user.role === 'admin') {
@@ -36,6 +37,7 @@ function Reports({ user, onLogout }) {
 
   const fetchDailyReport = async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({
         type: 'daily',
@@ -48,6 +50,8 @@ function Reports({ user, onLogout }) {
       setReportData(response.data)
     } catch (err) {
       console.error('Failed to fetch report:', err)
+      setReportData(null)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
@@ -59,6 +63,7 @@ function Reports({ user, onLogout }) {
       return
     }
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({
         type: 'salesperson',
@@ -74,6 +79,8 @@ function Reports({ user, onLogout }) {
       setReportData(response.data)
     } catch (err) {
       console.error('Failed to fetch report:', err)
+      setReportData(null)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
@@ -81,17 +88,22 @@ function Reports({ user, onLogout }) {
 
   const fetchUncovered = async () => {
     setLoading(true)
+    setError(null)
     try {
       const response = await api.get('/reports?type=uncovered')
       setReportData(response.data)
     } catch (err) {
       console.error('Failed to fetch uncovered schools:', err)
+      setReportData(null)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
   }
 
   const handleGenerateReport = () => {
+    setReportData(null)
+    setError(null)
     if (reportType === 'daily') {
       fetchDailyReport()
     } else if (reportType === 'salesperson') {
@@ -191,8 +203,17 @@ function Reports({ user, onLogout }) {
           </button>
         </div>
 
+        {error && (
+          <div style={{ marginTop: '15px', padding: '12px 14px', border: '1px solid #f5c6cb', background: '#fdecea', color: '#b71c1c', borderRadius: '8px' }}>
+            Failed to load report: {error}
+          </div>
+        )}
+
         {reportData && (
           <div className="report-results">
+            {reportType === 'daily' && reportData.error && (
+              <p className="no-data">No report data: {reportData.error}</p>
+            )}
             {reportType === 'daily' && reportData.summary && (
               <>
                 <div className="summary-cards">
@@ -345,8 +366,8 @@ function Reports({ user, onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {reportData.map(row => (
-                      <tr key={row.date}>
+                    {reportData.map((row, idx) => (
+                      <tr key={`${row.date || 'row'}-${idx}`}>
                         <td>{new Date(row.date).toLocaleDateString()}</td>
                         <td>{row.total_routes}</td>
                         <td>{row.total_visits}</td>
@@ -371,4 +392,3 @@ function Reports({ user, onLogout }) {
 }
 
 export default Reports
-
