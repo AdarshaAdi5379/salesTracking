@@ -6,6 +6,8 @@ ini_set('log_errors', 1);
 ini_set('error_reporting', E_ALL);
 
 require_once __DIR__ . '/../config/cors.php';
+require_once __DIR__ . '/../utils/env.php';
+loadEnvFile(__DIR__ . '/../.env');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../utils/auth.php';
 

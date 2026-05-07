@@ -88,6 +88,8 @@ if ($method === 'GET') {
         // Get routes - admin sees all, salesperson sees only their own
         $salespersonId = $_GET['salesperson_id'] ?? null;
         $date = $_GET['date'] ?? null;
+        $areaId = $_GET['area_id'] ?? null;
+        $allArea = isset($_GET['all_area']) && $_GET['all_area'] === 'true';
         
         $query = "
             SELECT r.*, u.name as salesperson_name, a.name as area_name,
@@ -104,11 +106,20 @@ if ($method === 'GET') {
         $params = [];
         
         if ($user['role'] === 'salesperson') {
-            $conditions[] = "r.salesperson_id = ?";
-            $params[] = $user['id'];
+            // Special case: allow salespersons to query all routes for a specific area for TODAY only,
+            // used by the mobile self-assignment flow to detect already-visited schools.
+            if (!($allArea && $areaId && $date && $date === date('Y-m-d'))) {
+                $conditions[] = "r.salesperson_id = ?";
+                $params[] = $user['id'];
+            }
         } elseif ($salespersonId) {
             $conditions[] = "r.salesperson_id = ?";
             $params[] = $salespersonId;
+        }
+
+        if ($areaId && $areaId !== '') {
+            $conditions[] = "r.area_id = ?";
+            $params[] = $areaId;
         }
         
         if ($date && $date !== '') {
@@ -129,7 +140,7 @@ if ($method === 'GET') {
         echo json_encode($routes);
     }
 } elseif ($method === 'POST') {
-    requireAdmin();
+    $user = requireSalesperson();
     
     $data = json_decode(file_get_contents('php://input'), true);
     $salespersonId = $data['salesperson_id'] ?? null;
@@ -137,6 +148,17 @@ if ($method === 'GET') {
     $date = $data['date'] ?? date('Y-m-d');
     $name = $data['name'] ?? '';
     $schoolIds = $data['school_ids'] ?? [];
+
+    // Salesperson can only create routes for themselves.
+    if ($user['role'] === 'salesperson') {
+        $salespersonId = $user['id'];
+        $today = date('Y-m-d');
+        if ($date !== $today) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Salesperson can create routes only for today']);
+            exit;
+        }
+    }
     
     if (empty($salespersonId) || empty($areaId) || empty($date)) {
         http_response_code(400);
@@ -147,6 +169,13 @@ if ($method === 'GET') {
     if (empty($schoolIds)) {
         http_response_code(400);
         echo json_encode(['error' => 'At least one school must be selected']);
+        exit;
+    }
+
+    // Ensure salespeople cannot spoof another salesperson_id
+    if ($user['role'] === 'salesperson' && isset($data['salesperson_id']) && (string)$data['salesperson_id'] !== (string)$user['id']) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Forbidden']);
         exit;
     }
     

@@ -9,13 +9,27 @@ function TodayRoute({ user, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [currentLocation, setCurrentLocation] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [createSidebarOpen, setCreateSidebarOpen] = useState(false)
   const [dateFilter, setDateFilter] = useState('')
   const [placeFilter, setPlaceFilter] = useState('')
   const [showCompleted, setShowCompleted] = useState(false)
   const [selectedRouteId, setSelectedRouteId] = useState(null)
 
+  const [areas, setAreas] = useState([])
+  const [createDate, setCreateDate] = useState('')
+  const [createAreaId, setCreateAreaId] = useState('')
+  const [createName, setCreateName] = useState('')
+  const [schools, setSchools] = useState([])
+  const [schoolSearch, setSchoolSearch] = useState('')
+  const [selectedSchoolIds, setSelectedSchoolIds] = useState([])
+  const [visitedSchools, setVisitedSchools] = useState({})
+  const [checkingVisits, setCheckingVisits] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
+
   useEffect(() => {
     fetchRoutes()
+    fetchAreas()
     getCurrentLocation()
   }, [])
 
@@ -41,6 +55,27 @@ function TodayRoute({ user, onLogout }) {
     if (!selectedRouteId) return
     fetchRouteDetails(selectedRouteId)
   }, [selectedRouteId])
+
+  useEffect(() => {
+    if (!createSidebarOpen) return
+    if (!createDate) setCreateDate(todayISO())
+  }, [createSidebarOpen])
+
+  useEffect(() => {
+    if (!createSidebarOpen) return
+    if (!createAreaId) {
+      setSchools([])
+      setSelectedSchoolIds([])
+      setVisitedSchools({})
+      return
+    }
+    // Reset filters/pickers when switching area to avoid hiding all results.
+    setSchoolSearch('')
+    setCreateError('')
+    console.log('[create-route] selected area_id =', createAreaId)
+    fetchSchoolsForArea(createAreaId)
+    checkExistingRoutesAndVisits(createAreaId)
+  }, [createAreaId, createSidebarOpen])
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -132,6 +167,160 @@ function TodayRoute({ user, onLogout }) {
     window.open(url, '_blank')
   }
 
+  const fetchAreas = async () => {
+    try {
+      const response = await api.get('/areas')
+      if (Array.isArray(response.data)) {
+        setAreas(response.data)
+      } else {
+        setAreas(response.data?.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch areas:', err)
+      setAreas([])
+    }
+  }
+
+  const fetchSchoolsForArea = async (areaId) => {
+    try {
+      const response = await api.get(`/schools?area_id=${encodeURIComponent(areaId)}&no_pagination=true`)
+      if (Array.isArray(response.data)) {
+        setSchools(response.data)
+      } else {
+        setSchools(response.data?.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch schools:', err)
+      const message = err?.response?.data?.error || err?.message || 'Failed to fetch schools'
+      setCreateError(message)
+      setSchools([])
+    }
+  }
+
+  const resetCreateForm = () => {
+    setCreateError('')
+    setCreateName('')
+    setCreateAreaId('')
+    setSchools([])
+    setSchoolSearch('')
+    setSelectedSchoolIds([])
+    setVisitedSchools({})
+    setCreateDate(todayISO())
+  }
+
+  const toggleSelectSchool = (schoolId) => {
+    const id = String(schoolId)
+    setSelectedSchoolIds((prev) => {
+      const exists = prev.some((x) => String(x) === id)
+      if (exists) return prev.filter((x) => String(x) !== id)
+      return [...prev, id]
+    })
+  }
+
+  const moveSelectedSchool = (schoolId, direction) => {
+    const id = String(schoolId)
+    setSelectedSchoolIds((prev) => {
+      const idx = prev.findIndex((x) => String(x) === id)
+      if (idx === -1) return prev
+      const next = [...prev]
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= next.length) return prev
+      const tmp = next[idx]
+      next[idx] = next[newIdx]
+      next[newIdx] = tmp
+      return next
+    })
+  }
+
+  const submitCreateRoute = async () => {
+    setCreateError('')
+    const today = todayISO()
+    if (!createAreaId) {
+      setCreateError('Please select a place (area).')
+      return
+    }
+    // Salesperson is only allowed to create a route for today.
+    if (!createDate || createDate !== today) {
+      setCreateDate(today)
+      setCreateError('You can create routes only for today.')
+      return
+    }
+    if (!selectedSchoolIds.length) {
+      setCreateError('Please select at least one school/college.')
+      return
+    }
+
+    const alreadyVisited = selectedSchoolIds.filter((id) => visitedSchools[String(id)]?.visited)
+    if (alreadyVisited.length > 0) {
+      const names = alreadyVisited
+        .map((id) => schools.find((s) => String(s.id) === String(id))?.name || `School #${id}`)
+        .join(', ')
+      const proceed = window.confirm(
+        `Warning: ${alreadyVisited.length} selected place(s) look already visited today:\n\n${names}\n\nCreate the route anyway?`
+      )
+      if (!proceed) return
+    }
+
+    setCreating(true)
+    try {
+      const payload = {
+        area_id: Number.isNaN(Number(createAreaId)) ? createAreaId : Number(createAreaId),
+        date: today,
+        name: createName,
+        school_ids: selectedSchoolIds.map((x) => (Number.isNaN(Number(x)) ? x : Number(x)))
+      }
+      const response = await api.post('/routes', payload)
+      const newId = response?.data?.id
+
+      await fetchRoutes()
+      if (newId) setSelectedRouteId(newId)
+      setCreateSidebarOpen(false)
+      resetCreateForm()
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to create route.'
+      setCreateError(message)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const checkExistingRoutesAndVisits = async (areaId) => {
+    if (!areaId) return
+    try {
+      setCheckingVisits(true)
+      const today = todayISO()
+      const routesResponse = await api.get(`/routes?date=${encodeURIComponent(today)}&area_id=${encodeURIComponent(areaId)}&all_area=true`)
+      const existing = Array.isArray(routesResponse.data) ? routesResponse.data : []
+
+      const visitedMap = {}
+      for (const r of existing) {
+        try {
+          const routeDetails = await api.get(`/routes/${r.id}`)
+          const items = routeDetails?.data?.items || []
+          for (const item of items) {
+            const visitDate = item.last_visited_at || item.visited_at
+            if ((item.visit_status === 'visited' || item.last_visited_at) && visitDate) {
+              visitedMap[String(item.school_id)] = {
+                visited: true,
+                visitedAt: visitDate,
+                routeName: r.name || `Route #${r.id}`,
+                salesperson: r.salesperson_name
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch route ${r.id}:`, err)
+        }
+      }
+      setVisitedSchools(visitedMap)
+    } catch (err) {
+      console.error('Failed to check existing routes/visits:', err)
+      setVisitedSchools({})
+    } finally {
+      setCheckingVisits(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="mobile-container">
@@ -156,10 +345,17 @@ function TodayRoute({ user, onLogout }) {
 
   const visitedCount = route?.items?.filter(item => item.visit_status === 'visited').length || 0
   const totalCount = route?.items?.length || 0
+  const filteredSchools = (schools || []).filter((s) => {
+    const q = schoolSearch.trim().toLowerCase()
+    if (!q) return true
+    const hay = `${s.name || ''} ${s.address || ''} ${s.type || ''}`.toLowerCase()
+    return hay.includes(q)
+  })
 
   return (
     <div className="mobile-container mobile-layout">
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+      {createSidebarOpen && <div className="create-sidebar-backdrop" onClick={() => setCreateSidebarOpen(false)} />}
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
@@ -245,6 +441,152 @@ function TodayRoute({ user, onLogout }) {
         </div>
       </aside>
 
+      <aside className={`create-sidebar ${createSidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-title">Create Route</div>
+          <button className="sidebar-close" onClick={() => setCreateSidebarOpen(false)} aria-label="Close create route sidebar">✕</button>
+        </div>
+
+        <div className="create-form">
+          {createError && <div className="create-error">{createError}</div>}
+
+          <div className="filter-row">
+            <label className="filter-label">Date</label>
+            <input
+              className="filter-input"
+              type="date"
+              value={createDate}
+              onChange={(e) => setCreateDate(e.target.value)}
+              min={todayISO()}
+              max={todayISO()}
+              disabled
+            />
+            <div className="create-hint" style={{ padding: 0 }}>Routes can be created only for today.</div>
+          </div>
+
+          <div className="filter-row">
+            <label className="filter-label">Place (Area)</label>
+            <select
+              className="filter-input"
+              value={createAreaId}
+              onChange={(e) => setCreateAreaId(e.target.value)}
+            >
+              <option value="">Select an area</option>
+              {(areas || []).map((a) => (
+                <option key={a.id} value={String(a.id)}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-row">
+            <label className="filter-label">Route Name (optional)</label>
+            <input
+              className="filter-input"
+              type="text"
+              placeholder="e.g. Morning visits"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+            />
+          </div>
+
+          <div className="filter-row">
+            <label className="filter-label">Search schools/colleges</label>
+            <input
+              className="filter-input"
+              type="text"
+              placeholder="Search by name/address"
+              value={schoolSearch}
+              onChange={(e) => setSchoolSearch(e.target.value)}
+              disabled={!createAreaId}
+            />
+          </div>
+        </div>
+
+          <div className="create-body">
+                    <div className="create-section-title">Select Schools/Colleges</div>
+                    {!createAreaId ? (
+                      <div className="create-hint">Select a place (area) to load schools.</div>
+                    ) : (
+                      <>
+                        {checkingVisits && <div className="create-hint">Checking visited schools…</div>}
+                        {!checkingVisits && schools.length === 0 && (
+                          <div className="create-hint">No schools/colleges found for this area. Ask admin to add/import them first.</div>
+                        )}
+                        {schools.length > 0 && filteredSchools.length === 0 && (
+                          <div className="create-hint">No matches for your search.</div>
+                        )}
+
+                        <div className="schools-list">
+                          {filteredSchools.map((s) => {
+                            const checked = selectedSchoolIds.some((x) => String(x) === String(s.id))
+                            const visited = !!visitedSchools[String(s.id)]?.visited
+                            const visitedInfo = visitedSchools[String(s.id)]
+                            return (
+                              <label key={s.id} className={`school-checkbox ${checked ? 'checked' : ''} ${visited ? 'visited' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => {
+                                    if (visited && !checked) {
+                              const proceed = window.confirm('This school/college is already marked as visited today. Add anyway?')
+                                      if (!proceed) return
+                                    }
+                                    toggleSelectSchool(s.id)
+                                  }}
+                                />
+                                <div className="school-item-info">
+                                  <div className="school-item-name">
+                                    {s.name}
+                                    {visited ? <span className="visited-pill">Visited today</span> : null}
+                                  </div>
+                                  <div className="school-item-meta">
+                                    <span className="school-item-type">{s.type}</span>
+                                    {s.address ? <span className="school-item-sep">•</span> : null}
+                                    {s.address ? <span className="school-item-address">{s.address}</span> : null}
+                                  </div>
+                                  {visited && visitedInfo ? (
+                                    <div className="visited-meta">
+                                      {visitedInfo.salesperson ? `By ${visitedInfo.salesperson}` : 'Visited'} • {visitedInfo.routeName || 'Route'} • {String(visitedInfo.visitedAt).slice(0, 16).replace('T', ' ')}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+
+          <div className="create-section-title">Selected ({selectedSchoolIds.length})</div>
+          {selectedSchoolIds.length === 0 ? (
+            <div className="create-hint">Pick at least one school/college.</div>
+          ) : (
+            <div className="selected-list">
+              {selectedSchoolIds.map((id) => {
+                const s = (schools || []).find((x) => String(x.id) === String(id))
+                return (
+                  <div key={id} className="selected-item">
+                    <div className="selected-item-name">{s?.name || 'School'}</div>
+                    <div className="selected-item-actions">
+                      <button className="selected-move" onClick={() => moveSelectedSchool(id, 'up')} aria-label="Move up">↑</button>
+                      <button className="selected-move" onClick={() => moveSelectedSchool(id, 'down')} aria-label="Move down">↓</button>
+                      <button className="selected-remove" onClick={() => toggleSelectSchool(id)} aria-label="Remove">Remove</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="create-footer">
+          <button className="create-cancel" onClick={() => { setCreateSidebarOpen(false); resetCreateForm() }} disabled={creating}>Cancel</button>
+          <button className="create-submit" onClick={submitCreateRoute} disabled={creating || !createAreaId || selectedSchoolIds.length === 0}>
+            {creating ? 'Creating...' : 'Create Route'}
+          </button>
+        </div>
+      </aside>
+
       <div className="main">
         <div className="route-bar">
           <button className="menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open routes sidebar">☰</button>
@@ -254,6 +596,7 @@ function TodayRoute({ user, onLogout }) {
               {route ? `${formatDate(route.date)} • ${route.area_name || 'Unknown area'}` : (dateFilter ? `Date: ${formatDate(dateFilter)}` : 'All pending routes')}
             </div>
           </div>
+          <button className="create-btn" onClick={() => setCreateSidebarOpen(true)} aria-label="Create route">＋</button>
           <button onClick={onLogout} className="logout-btn logout-btn-small">Logout</button>
         </div>
 
