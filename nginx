@@ -1,0 +1,331 @@
+server{
+        listen 80;
+        server_name $host;
+        proxy_connect_timeout 600s;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        set $front_end_url build_new;
+        client_max_body_size 25M;
+        fastcgi_read_timeout 360s;
+        include fcgiwrap.conf;
+        if ($host = 'phpmyadminstaging.edubricz.space'){
+                set $front_end_url phpmyadmin;
+        }
+	
+	if ($host = 'sales-tracking.edubricz.space'){
+                set $front_end_url sales-tracking;
+        }
+
+        if ($host = 'www.edubricz.com'){
+                set $front_end_url edubricznewwebsite;
+        }
+        if ($host = 'edubricz.com'){
+                set $front_end_url edubricznewwebsite;
+        }
+        if ($host = 'naga.edubricz.space'){
+                set $front_end_url build_naga;
+        }
+
+        if ($host = 'deploy.edubricz.space'){
+                set $front_end_url autodeploy;
+        }
+
+        if ($host = 'django3.edubricz.space'){
+                set $front_end_url django3;
+        }
+
+        if ($host = 'signupstaging.edubricz.space'){
+                set $front_end_url build_signup;
+        }
+
+        if ($host = 'lingu.edubricz.space'){
+                set $front_end_url edubricz_lingu;
+        }
+
+        if ($host = 'bugzilla.edubricz.space'){
+                set $front_end_url bugzilla;
+        }
+
+        if ($host = 'diploma.edubricz.space'){
+                set $front_end_url build_payment;
+        }
+
+        if ($host = 'agreement.edubricz.space'){
+                set $front_end_url agreement;
+        }
+
+        if ($host = 'quotation.edubricz.space'){
+                set $front_end_url quotation;
+        }
+
+        if ($host = 'invoice.edubricz.space'){
+                set $front_end_url invoice;
+        }
+
+        if ($host = 'medibricz.edubricz.space'){
+                set $front_end_url medibricz;
+        }
+
+        if ($host = 'bethel.edubricz.space'){
+                set $front_end_url medibricz;
+        }
+	
+	if ($host = 'raghavendra.edubricz.space'){
+		set $front_end_url medibricz;
+        }
+
+        if ($host = 'bethelnew.edubricz.space'){
+                set $front_end_url medibricz;
+        }
+
+        if ($host = 'medibricztesting.edubricz.space'){
+                set $front_end_url medibricz;
+        }
+
+        if ($host = 'eec.edubricz.space'){
+                set $front_end_url eec;
+        }
+	
+	if ($host = 'bank.edubricz.space'){
+                set $front_end_url bank;
+        }	
+
+        location ~ \.cgi {
+                fastcgi_pass  unix:/var/run/fcgiwrap.sock;
+                fastcgi_index index.cgi;
+                fastcgi_param SCRIPT_FILENAME /opt/nginx/bugzilla/$fastcgi_script_name;
+                include /etc/nginx/fastcgi_params;
+        }
+
+        root /var/www/html/frontend/$front_end_url;
+
+	index index.php index.html index.htm;
+
+        location ~ \.php$ {
+                include snippets/fastcgi-php.conf;
+                fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        }
+
+	
+	location /{
+                try_files $uri $uri/ /index.html;
+        }
+
+        location /phpmyadmin {
+
+            root /var/www/html/frontend;
+
+            index index.php index.html index.htm;
+
+            location ~ ^/phpmyadmin/(.+\.php)$ {
+                include snippets/fastcgi-php.conf;
+                fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+                fastcgi_param SCRIPT_FILENAME /var/www/html/frontend/phpmyadmin/$1;
+           }
+
+          location ~* ^/phpmyadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt)) {
+              root /var/www/html/frontend;
+         }
+
+       }
+
+        location /api/ {
+                include proxy_params;
+                proxy_pass http://unix:/run/edubricz.sock;
+                proxy_read_timeout 100s;
+        }
+
+        location /medibriczapi/ {
+                include proxy_params;
+                proxy_pass http://unix:/run/medibricz.sock;
+                proxy_read_timeout 100s;
+        }
+	
+	location ^~ /pumpapi/  {
+                include proxy_params;
+                proxy_pass http://unix:/run/pump.sock;
+                proxy_read_timeout 100s;
+        }
+
+	location ^~ /whatsappapi/  {
+                include proxy_params;
+                proxy_pass http://unix:/run/whatsapp.sock;
+                proxy_read_timeout 100s;
+        }
+
+
+
+        location /api3/ {
+                include proxy_params;
+                proxy_pass http://unix:/run/edubricz_payment.sock;
+        }
+
+        location /signupapi/ {
+                include proxy_params;
+                proxy_pass http://unix:/run/signup.sock;
+        }
+
+        location /notificationapi/ {
+                include proxy_params;
+                proxy_pass http://unix:/run/notification.sock;
+        }
+
+        location /notificationapi/static/ {
+                alias /var/www/html/backend/smsdjangobackend/sms/static/;
+        }
+        location /api/static/ {
+                alias /var/www/html/backend/smsdjangobackend/sms/static/;
+        }
+        location /signupapi/static/ {
+                alias /var/www/html/backend/edubriczsignup/static/;
+        }
+        location /uploads/ {
+                client_max_body_size 500M;
+        }
+
+	location /bankapi/ {
+        	include proxy_params;
+                proxy_pass http://unix:/run/bank.sock;
+	}
+
+location ^~ /salesapi/api/ {
+    alias /var/www/html/backend/sales-tracking-tool/backend/api/;
+    
+    # CORS headers for all requests
+    add_header 'Access-Control-Allow-Origin' '*' always;
+    add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+    add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, X-Requested-With, Accept, Origin' always;
+    add_header 'Access-Control-Expose-Headers' 'Content-Length, Content-Type' always;
+    
+    # Handle OPTIONS preflight
+    if ($request_method = 'OPTIONS') {
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, X-Requested-With, Accept, Origin' always;
+        add_header 'Access-Control-Max-Age' 3600 always;
+        add_header 'Content-Length' 0 always;
+        add_header 'Content-Type' 'text/plain' always;
+        return 204;
+    }
+    
+    # Route all requests to index.php
+    if (!-e $request_filename) {
+        rewrite ^/salesapi/api/(.*)$ /salesapi/api/index.php?$1 last;
+    }
+    
+    # PHP handling - NO if statements here (that was the problem)
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $request_filename;
+        include fastcgi_params;
+    }
+    
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+}
+
+
+}
+
+
+###careers
+
+server {
+      listen 80;
+      server_name careers.edubricz.space;
+
+      client_max_body_size 25M;
+
+      root /var/www/html/frontend/careers/test-backend/public;
+      index index.php;
+
+      location / {
+          try_files $uri $uri/ /index.php?$query_string;
+      }
+
+      location ~ \.php$ {
+          include snippets/fastcgi-php.conf;
+          fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+	  fastcgi_param HTTPS on;
+  	  fastcgi_param HTTP_X_FORWARDED_PROTO $scheme;
+      }
+
+      location ~ /\. {
+          deny all;
+      }
+  
+}
+
+
+###sales-tracking
+
+server {
+    listen 80;
+    server_name salestracking.edubricz.space.com;
+
+    root /var/www/html/frontend/sales-tracking;
+    index index.html;
+
+    # static assets
+    location /assets/ {
+      try_files $uri =404;
+      expires 1y;
+      add_header Cache-Control "public, immutable";
+    }
+
+    # proxy API to your backend (so frontend can call /areas, /schools, etc.)
+    location ~ ^/(areas|users|schools|routes|reports|places)(/|$) {
+      proxy_pass https://pooja.edubricz.space;
+      proxy_set_header Host pooja.edubricz.space;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # SPA routing fallback
+    location / {
+      try_files $uri $uri/ /index.html;
+    }
+  }
+
+
+
+  #######salestracking
+
+  server {
+      listen 80;
+      server_name salestracking.edubricz.space;
+
+      root /var/www/html/frontend/salesTracking/admin/dist;
+      index index.html;
+
+      location / { try_files $uri $uri/ /index.html; }
+
+      location /uploads/ {
+          alias /var/www/html/frontend/salesTracking/uploads/;
+          try_files $uri =404;
+      }
+
+      location /app/ {
+          alias /var/www/html/frontend/salesTracking/mobile/dist/;
+
+           index index.html;
+
+           try_files $uri $uri/ /index.html;
+       }
+
+      location /api/ {
+          root /var/www/html/frontend/salesTracking/backend;
+          rewrite ^/api/(.*)$ /api/index.php last;
+
+          location ~ \.php$ {
+              include snippets/fastcgi-php.conf;
+              fastcgi_pass unix:/run/php/php8.4-fpm-salestracking.sock;
+              fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+          }
+      }
+
+      client_max_body_size 20m;
+  }

@@ -13,8 +13,36 @@ if ($method === 'GET') {
     // Get all visited schools with coordinates
     // Only show schools that have been visited (status = 'visited')
     $date = $_GET['date'] ?? null;
+    $fromDate = $_GET['from_date'] ?? null;
+    $toDate = $_GET['to_date'] ?? null;
     $salespersonId = $_GET['salesperson_id'] ?? null;
     $areaId = $_GET['area_id'] ?? null;
+
+    $isValidDate = function ($value) {
+        return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1;
+    };
+
+    // Backward compatibility: if only `date` is provided, treat it as a single-day range.
+    if ((!$fromDate && !$toDate) && $date) {
+        $fromDate = $date;
+        $toDate = $date;
+    }
+
+    // If one side of the range is missing, treat as a single-day filter.
+    if ($fromDate && !$toDate) $toDate = $fromDate;
+    if ($toDate && !$fromDate) $fromDate = $toDate;
+
+    if (($fromDate && !$isValidDate($fromDate)) || ($toDate && !$isValidDate($toDate))) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid date format. Use YYYY-MM-DD.']);
+        exit;
+    }
+
+    if ($fromDate && $toDate && $fromDate > $toDate) {
+        http_response_code(400);
+        echo json_encode(['error' => 'from_date cannot be after to_date.']);
+        exit;
+    }
     
     $query = "
         SELECT DISTINCT
@@ -54,10 +82,11 @@ if ($method === 'GET') {
         $params[] = $salespersonId;
     }
     
-    // Filter by date
-    if ($date) {
-        $query .= " AND r.date = ?";
-        $params[] = $date;
+    // Filter by date range
+    if ($fromDate && $toDate) {
+        $query .= " AND r.date BETWEEN ? AND ?";
+        $params[] = $fromDate;
+        $params[] = $toDate;
     }
     
     // Filter by area
@@ -98,9 +127,10 @@ if ($method === 'GET') {
         $summaryQuery .= " AND r.salesperson_id = ?";
         $summaryParams[] = $salespersonId;
     }
-    if ($date) {
-        $summaryQuery .= " AND r.date = ?";
-        $summaryParams[] = $date;
+    if ($fromDate && $toDate) {
+        $summaryQuery .= " AND r.date BETWEEN ? AND ?";
+        $summaryParams[] = $fromDate;
+        $summaryParams[] = $toDate;
     }
     if ($areaId) {
         $summaryQuery .= " AND s.area_id = ?";
@@ -123,4 +153,3 @@ if ($method === 'GET') {
     echo json_encode(['error' => 'Method not allowed']);
     exit;
 }
-

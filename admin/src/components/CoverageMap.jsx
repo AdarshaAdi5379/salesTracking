@@ -23,8 +23,10 @@ function CoverageMap({ user, onLogout }) {
   const [visitedSchools, setVisitedSchools] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedSchool, setSelectedSchool] = useState(null)
+  const [filterError, setFilterError] = useState(null)
   const [filters, setFilters] = useState({
-    date: '',
+    from_date: '',
+    to_date: '',
     salesperson_id: '',
     area_id: ''
   })
@@ -82,7 +84,7 @@ function CoverageMap({ user, onLogout }) {
     // Refresh coverage data when filters change
     fetchCoverageData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.date, filters.salesperson_id, filters.area_id])
+  }, [filters.from_date, filters.to_date, filters.salesperson_id, filters.area_id])
 
   useEffect(() => {
     // Initialize (or re-initialize) the map once Google Maps is loaded and the container exists.
@@ -215,8 +217,21 @@ function CoverageMap({ user, onLogout }) {
   const fetchCoverageData = async () => {
     try {
       setLoading(true)
+      setFilterError(null)
+
+      const { from_date: fromDate, to_date: toDate } = filters
+      if (fromDate && toDate && fromDate > toDate) {
+        setFilterError('From date cannot be after To date.')
+        setVisitedSchools([])
+        setSummary(null)
+        setMapCenter(defaultCenter)
+        setMapZoom(defaultZoom)
+        return
+      }
+
       const params = new URLSearchParams()
-      if (filters.date) params.append('date', filters.date)
+      if (filters.from_date) params.append('from_date', filters.from_date)
+      if (filters.to_date) params.append('to_date', filters.to_date)
       if (filters.salesperson_id) params.append('salesperson_id', filters.salesperson_id)
       if (filters.area_id) params.append('area_id', filters.area_id)
 
@@ -288,11 +303,33 @@ function CoverageMap({ user, onLogout }) {
 
         <div className="coverage-filters">
           <div className="filter-group">
-            <label>Filter by Date:</label>
+            <label>From Date:</label>
             <input
               type="date"
-              value={filters.date}
-              onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+              value={filters.from_date}
+              onChange={(e) => {
+                const value = e.target.value
+                setFilters((prev) => ({
+                  ...prev,
+                  from_date: value,
+                  to_date: value && !prev.to_date ? value : prev.to_date
+                }))
+              }}
+            />
+          </div>
+          <div className="filter-group">
+            <label>To Date:</label>
+            <input
+              type="date"
+              value={filters.to_date}
+              onChange={(e) => {
+                const value = e.target.value
+                setFilters((prev) => ({
+                  ...prev,
+                  to_date: value,
+                  from_date: value && !prev.from_date ? value : prev.from_date
+                }))
+              }}
             />
           </div>
           {user.role === 'admin' && (
@@ -322,12 +359,30 @@ function CoverageMap({ user, onLogout }) {
             </select>
           </div>
           <button
-            onClick={() => setFilters({ date: '', salesperson_id: '', area_id: '' })}
+            onClick={() => {
+              setFilterError(null)
+              setFilters({ from_date: '', to_date: '', salesperson_id: '', area_id: '' })
+            }}
             className="btn-clear-filters"
           >
             Clear Filters
           </button>
         </div>
+
+        {filterError && (
+          <div
+            style={{
+              margin: '12px 0',
+              padding: '12px 14px',
+              border: '1px solid #f5c6cb',
+              background: '#fdecea',
+              borderRadius: 8,
+              color: '#b71c1c'
+            }}
+          >
+            {filterError}
+          </div>
+        )}
 
         {!GOOGLE_MAPS_API_KEY && (
           <div

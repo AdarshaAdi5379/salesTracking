@@ -5,8 +5,14 @@ uploads/
 .DS_Store
 .env
 .env.local
+backend/.env
+admin/.env
+mobile/.env
 dist/
 build/
 *.swp
 *.swo
 *~
+backend/.env.db.example
+backend/.env.example
+
